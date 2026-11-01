@@ -1,0 +1,6 @@
+{
+  "chainId": 11155111,
+  "contractAddress": null,
+  "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "explorer": "https://sepolia.etherscan.io"
+}
