@@ -1,4 +1,42 @@
-# Revision validation (2026-11-02)
+# Preview reflow revision (latest)
+
+Scope: finding `f79080a0be39d8681761bf19a7663c15b4e258b7b0cd07cb9e360321e4922d99`. The existing implementation was retained; the source change is limited to the three preview layout rules at `src/style.css:113–115`. Documentation, the finding response and the production export were updated.
+
+Before the fix, aborting the status request or returning an invalid measurement at 320×844 reproduced unavailable captions escaping both cards. Color/pattern rows ended at x=310.28/318.28 instead of their content boundary x=288; the card edge is x=304. This Chromium runtime measured document width 320 rather than the reviewer's 336, so that exact page-width result was not reproduced. The shared intrinsic-width defect was confirmed in measurements and a screenshot.
+
+Correction: `.pair` uses two `minmax(0, 1fr)` columns; figures and captions use `min-width: 0`; captions wrap with `overflow-wrap: anywhere`. All four complete unavailable labels remain visible at the existing 13px size. Color swatches remain 44×44px and pattern miniatures 48×48px. No clipping, ellipsis, new dependency or application-logic change was introduced.
+
+## Checks in this revision
+
+Dependencies were installed from the unchanged lockfile in a temporary source mirror, outside the submission. Builds ran there and the production export was copied into repository-root `dist/`. No ignore-file changes were made.
+
+- `npm run typecheck`: passed.
+- `npm run build`: passed, including a final build after the design probe. The existing dependency still emits its `node:worker_threads` browser-externalization warning.
+- `npm test`: 12/12 passed.
+- `PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node test/scratch/preview-reflow.mjs --verify`: all nine Chromium combinations passed: aborted request, invalid measurement and fresh IDLE fixture, each at 320/390/1440. Both preview rows now end at x=288 at 320px; document width equals viewport width throughout. Assertions cover complete labels, caption/text bounds, unchanged font and graphic sizes, no page errors and no failed local resources. Fixtures exist only in the validation harness.
+- `PLAYWRIGHT=<provided module> PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node tests/revision.mjs`: 8/8 passed on the rebuilt export under `/preview/`. Covers repeated replay, four interruption/recovery cases, a full hatch/name/save/download flow, 30-character names, and exact 19/78-digit counters. Contract and wallet tests were not rerun for this CSS-only revision.
+- `IMD_PLAYWRIGHT=<provided module> PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste`: 15/16 passed; layout passes at 320/390/1440. The existing `eyebrows` warning identifies the required header Connect button; it remains a wallet action, not a kicker. No unrelated redesign was made.
+- Inspected the before/after missing-signal panel screenshots, the final 390×844 first screen and the probe's mobile/desktop views. The egg, lamp, directions, aim controls and Begin incubation are visible on the 390px first screen; the button spans y=750.27–798.27.
+- Final integrity: the last build matches the checked `dist/` byte for byte; relative assets loaded successfully under `/preview/`. The export is 428,029 bytes and the source/export/documentation submission is under 700,000 bytes (8,388,608-byte limit). No dependency directories, npm archives, source maps or ignore-file changes are included.
+
+Scratch evidence: `test/scratch/preview-reflow/{before,after}.json`, its before/after panel screenshots, `test/scratch/revision/results.json`, and `test/scratch/taste/`. Scratch files are validation-only and are not submitted.
+
+## Better Interface coverage for the changed previews
+
+| Domain | Review and result |
+| --- | --- |
+| Accessibility | Complete signal-state labels stay readable at 320px; full-size graphics are retained. Screen reader and native zoom checks were not performed. |
+| Layout | Measured missing/invalid/IDLE preview bounds at 320/390/1440; both rows stay within their cards. |
+| Writing | Existing English labels, including all four complete “Unavailable” values, are preserved. |
+| Typography | Caption wrapping replaces intrinsic overflow; computed font size stays 13px. No clipping or smaller text. |
+| Colors | Existing tokens are preserved; the probe passes its measured text contrast checks. No comprehensive artwork/gradient contrast audit is claimed. |
+| UI | Full-size swatches and miniatures remain aligned with captions; unavailable stripes and valid previews were visually inspected. |
+
+Complete for this revision's finding. WebKit could not launch because its executable is unavailable; no WebKit/Safari result is claimed. The assigned browser connector returned `Transport closed`, so rendered inspection used Playwright screenshots and measurements instead. Physical-device, screen-reader, native 200% zoom and RTL sessions were not performed. The earlier Sepolia deployment limitation remains documented below.
+
+---
+
+# Previous revision validation (2026-11-02)
 
 The five reopened findings were reproduced in the previous production export and corrected in the existing implementation. The source, lockfile and rebuilt `dist/` are delivered. This is worker-side evidence, not an independent certification.
 
@@ -14,7 +52,7 @@ The wider assignment remains **incomplete for public Sepolia deployment**: no au
 | Pending mint rename (`src/app.ts:444`, `src/app.ts:485`, `src/app.ts:613`) | Hold the local wallet send request, rename Original Pip to Changed Pip, release it, and read tokenURI: token/collection said Original Pip; review/JSON said Changed Pip. | Disable and guard rename/form submission and starting another egg while busy. Render success from the frozen minted record; saves and downloads use that record. The local-chain browser check passes with all four names Original Pip, exact SVG/metadata equality, rejection/failure recovery, and checking/signing/pending guards. |
 | Repeated first-screen copy (`src/app.ts:58`, `src/app.ts:233`) | The pinned probe measured 50 prose words on mobile and 128 on desktop with valid IDLE data. | Shorten the lead, resting state, pre-lock note and idle ETA. Keep directions, hardware caveat, real amounts and rate-based estimates. Final probe: 36 prose words at 390 and 83 at 1440. |
 
-Full finding IDs and individual verdicts are in `.imd-responses.json`.
+The response file for that revision recorded its individual verdicts. The current `.imd-responses.json` answers the latest single finding above.
 
 ## Build and interaction checks
 

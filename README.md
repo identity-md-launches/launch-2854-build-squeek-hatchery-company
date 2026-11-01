@@ -66,4 +66,4 @@ then put the address in `dist/hatchery.config.json` (and `public/hatchery.config
 
 See `VALIDATION.md` for the full record.
 
-Revision: all five reopened findings were reproduced and corrected. The current validation record distinguishes the successful local mint tests from the still-unperformed Sepolia deployment, source verification and public testnet mint. No address, hardware data, transaction or check result was fabricated.
+Latest revision: unavailable color and pattern previews now wrap within their cards at 320px, keeping complete labels and full-size swatches. Build, typecheck, unit tests and Chromium layout checks passed; see `VALIDATION.md` for results and browser limitations. The previous five-finding revision and its local mint tests remain documented separately from the still-unperformed Sepolia deployment, source verification and public testnet mint.

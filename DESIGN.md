@@ -25,6 +25,7 @@ A warm, cozy single-page toy for players of all levels. The incubator (a dark pl
 - From 640px: header nav is shown and the wallet sheet is centered (a bottom sheet below that).
 - The stage keeps a 400:420 aspect ratio; the SVG and the HTML lamp handle share that coordinate system (src/rules.ts `STAGE`, `lampGeometry`).
 - Grid children can shrink with `min-width: 0`. The two `.stats` columns use `minmax(0, 1fr)`; locked-work notes and trait values wrap full counters too. Browser checks covered 320, 390, 768 and 1440px, including supported 30-character names and 78-digit work counters on mobile.
+- Both `.pair` preview columns also use `minmax(0, 1fr)`. Their figures and captions have `min-width: 0`, and captions use `overflow-wrap: anywhere`. Complete unavailable labels wrap inside the cards at 320px, retaining 13px text, 44px color swatches and 48px pattern miniatures. Aborted requests, invalid measurements and valid IDLE previews were checked at 320, 390 and 1440px in Chromium.
 
 ## Elevation and depth
 Cards use `--shadow` (two soft layers) and no border. Buttons use a 1.5px border and no shadow. The sheet sits on a 45% plum backdrop. The pause overlay is an 88% plum panel on the stage.
