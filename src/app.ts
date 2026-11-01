@@ -18,6 +18,8 @@ interface SavedRecord { name: string; svg: string; traits: string; session: Sess
 let session = freshSession();
 let phase: "ready" | "running" | "hatched" = "ready";
 let reading: Reading | null = null;
+// Signal loss must never erase the last accepted timestamp/counter used to reject replays.
+let replayBaseline: Reading | null = null;
 let lastOk = 0;
 let signalNote = "Connecting to the wheel";
 let signalReason: SignalError["reason"] | "network" | null = null;
@@ -53,7 +55,7 @@ $("#app").innerHTML = `
 <main>
   <section class="hero" aria-labelledby="title">
     <h1 id="title">Hatch a hamster with light</h1>
-    <p class="lead">A real hamster's wheel powers the lamp. Aim it at the egg for 60 seconds to grow and color the companion inside.</p>
+    <p class="lead">A real hamster’s wheel powers your hatchery lamp.</p>
   </section>
   <div class="layout">
     <section id="incubator" class="incubator" aria-labelledby="incubator-title">
@@ -193,12 +195,13 @@ async function poll() {
       pollDelay = clamp(Math.max(retry || 0, pollDelay * 2), 8000, 60000);
       throw new SignalError("missing", `Status API answered ${res.status}`);
     }
-    const next = validateStatus(await res.json(), Date.now(), reading);
+    const next = validateStatus(await res.json(), Date.now(), replayBaseline);
     if (phase === "running" && !document.hidden) pendingWork += workDelta(reading, next);
     if (history.length && (history[history.length - 1].epoch !== next.counterEpoch || next.distanceMm < history[history.length - 1].mm)) history = [];
     history.push({ t: next.observedAt, work: next.work, mm: next.distanceMm, epoch: next.counterEpoch });
     history = history.filter((h) => next.observedAt - h.t < 180_000).slice(-60);
     reading = next;
+    replayBaseline = next;
     lastOk = Date.now();
     signalReason = null;
     pollDelay = 4000;
@@ -227,7 +230,7 @@ function rates() {
   return { workPerMin: Number(b.work - a.work) / minutes, metersPerMin: (b.mm - a.mm) / 1000 / minutes };
 }
 function eta(amount: number, perMin: number | undefined) {
-  if (!perMin || perMin <= 0) return "waiting time unknown while the wheel rests";
+  if (!perMin || perMin <= 0) return "waiting time unknown at rest";
   const min = amount / perMin;
   return min < 1 ? "under a minute at the current pace" : `about ${Math.round(min)} min at the current pace`;
 }
@@ -327,7 +330,7 @@ function renderPanels(m: Reading | null, paused: boolean, t: number) {
   const stateText = !m ? "Signal missing" : resting ? "Resting: 12% maintenance glow" : `Running: ${Math.round(lampPower(m.rpm) * 100)}% lamp power`;
   pill.textContent = stateText;
   pill.dataset.state = !m ? "missing" : resting ? "rest" : "run";
-  $("#signal-state").textContent = !m ? `Signal missing. ${signalNote}. Incubation pauses until fresh hardware data returns.` : resting ? "The hamster is resting. The lamp keeps a gentle maintenance glow." : "The hamster is running. The lamp follows its speed.";
+  $("#signal-state").textContent = !m ? `Signal missing. ${signalNote}. Incubation pauses until fresh hardware data returns.` : resting ? "Resting with maintenance light." : "The hamster is running. The lamp follows its speed.";
   $("#rpm").textContent = m ? `${m.rpm.toFixed(1)} RPM` : "Unavailable";
   $("#power").textContent = m ? `${Math.round(lampPower(m.rpm) * 100)}%` : "Unavailable";
   $("#meters").textContent = m ? `${m.meters.toFixed(1)} m` : "Unavailable";
@@ -369,7 +372,7 @@ function renderPanels(m: Reading | null, paused: boolean, t: number) {
     locked.dataset.key = key;
     locked.innerHTML = session.patternSource
       ? `${patternMiniature(session.patternType, session.patternSeed, `${PATTERN_LABEL[session.patternType]} layout`)}<p><strong>This egg: ${PATTERN_LABEL[session.patternType]}</strong><br><span class="note">Locked at ${n(BigInt(session.patternSource.cumulativeWorkUnits))} work units. Light reveals it.</span></p>`
-      : `<p class="note">The pattern and its layout lock for this egg when you begin.</p>`;
+      : `<p class="note">Pattern locks at start.</p>`;
   }
   session.regions.forEach((g, i) => { $(`#m${i}`).style.width = `${g.growth * 100}%`; $(`#t${i}`).textContent = `${Math.round(g.growth * 100)}%`; });
 
@@ -438,6 +441,7 @@ function showReview(on: boolean) {
 
 $("#name-form").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (mintBusy || mintedRecord()) return;
   const input = $<HTMLInputElement>("#name");
   const value = input.value.trim().replace(/\s+/g, " ");
   if (!validName(value)) {
@@ -449,16 +453,14 @@ $("#name-form").addEventListener("submit", (e) => {
   input.removeAttribute("aria-invalid");
   $("#name-help").textContent = "Up to 30 letters, numbers, spaces and . , ' -";
   finalName = value;
-  $("#final-name").textContent = finalName;
-  const traits = JSON.parse(buildTraits(session)) as { trait_type: string; value: string | number }[];
-  $("#trait-list").innerHTML = traits.map((a) => `<li><span>${a.trait_type}</span><strong>${a.value}</strong></li>`).join("");
+  renderReviewedRecord(currentRecord());
   showReview(true);
   updateMintButton();
   $("#final-name").focus();
 });
 $("#final-name").tabIndex = -1;
 $("#rename").addEventListener("click", () => {
-  if (mintedRecord()) return;
+  if (mintBusy || mintedRecord()) return;
   showReview(false);
   $<HTMLInputElement>("#name").value = finalName;
   $("#name").focus();
@@ -471,11 +473,28 @@ function download(data: string, type: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 const fileBase = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "companion";
-$("#dl-svg").addEventListener("click", () => download(portraitSVG(session), "image/svg+xml", `${fileBase(finalName)}.svg`));
-$("#dl-json").addEventListener("click", () => download(metadataJSON(session, finalName), "application/json", `${fileBase(finalName)}.json`));
+$("#dl-svg").addEventListener("click", () => {
+  const rec = currentRecord();
+  download(rec.svg, "image/svg+xml", `${fileBase(rec.name)}.svg`);
+});
+$("#dl-json").addEventListener("click", () => {
+  const rec = currentRecord();
+  download(metadataJSON(rec.session, rec.name), "application/json", `${fileBase(rec.name)}.json`);
+});
 
 function currentRecord(): SavedRecord {
+  const minted = mintedRecord();
+  if (minted) return minted;
   return { name: finalName, svg: portraitSVG(session), traits: buildTraits(session), session: structuredClone(session), hatchedAt: session.endedAt || new Date().toISOString() };
+}
+function renderReviewedRecord(rec: SavedRecord) {
+  finalName = rec.name;
+  $("#final-name").textContent = rec.name;
+  $("#portrait").innerHTML = rec.svg;
+  $("#portrait svg").setAttribute("role", "img");
+  $("#portrait svg").setAttribute("aria-label", "Final portrait of your hatched hamster");
+  const traits = JSON.parse(rec.traits) as { trait_type: string; value: string | number }[];
+  $("#trait-list").innerHTML = traits.map((a) => `<li><span>${a.trait_type}</span><strong>${a.value}</strong></li>`).join("");
 }
 function upsert(rec: SavedRecord) {
   records = [rec, ...records.filter((r) => r.session.id !== rec.session.id)].slice(0, 30);
@@ -490,6 +509,7 @@ $("#save").addEventListener("click", () => {
 });
 
 $("#again").addEventListener("click", () => {
+  if (mintBusy) return;
   session = freshSession();
   phase = "ready"; resumeAt = null; finalName = "";
   $("#stage").classList.remove("hatched");
@@ -590,6 +610,8 @@ function updateMintButton() {
   const minted = mintedRecord();
   const c = W.connection?.();
   $("#rename").hidden = !!minted;
+  $<HTMLButtonElement>("#rename").disabled = mintBusy;
+  $<HTMLButtonElement>("#again").disabled = mintBusy;
   if (minted) { btn.disabled = true; btn.textContent = `Minted as token #${minted.mint!.tokenId}`; return; }
   if (!W.runtime.contractAddress) { btn.disabled = true; btn.textContent = "Mint unavailable: contract not configured"; return; }
   if (mintBusy) { btn.disabled = true; return; }
@@ -612,10 +634,12 @@ $("#mint").addEventListener("click", async () => {
       case "pending": btn.textContent = "Minting…"; setMintStatus(`Transaction sent. Waiting for a receipt. ${link(W.txUrl(ev.hash), "View transaction")}`); break;
       case "success":
         upsert({ ...rec, mint: { tokenId: ev.tokenId, tx: ev.hash, contract: W.runtime.contractAddress! } });
+        renderReviewedRecord(currentRecord());
         renderCollection();
         setMintStatus(`Minted as token #${ev.tokenId}. ${link(W.tokenUrl(ev.tokenId), "View NFT on Etherscan")} · ${link(W.txUrl(ev.hash), "View transaction")}`); break;
       case "duplicate":
         if (ev.tokenId) upsert({ ...rec, mint: { tokenId: ev.tokenId, contract: W.runtime.contractAddress! } });
+        renderReviewedRecord(currentRecord());
         renderCollection();
         setMintStatus(`This hatch was already minted${ev.tokenId ? ` as token #${ev.tokenId}. ${link(W.tokenUrl(ev.tokenId), "View NFT on Etherscan")}` : ""}. Each hatch can be minted once.`); break;
       case "rejected": setMintStatus("You declined the request in your wallet. Nothing was sent. You can mint later."); break;

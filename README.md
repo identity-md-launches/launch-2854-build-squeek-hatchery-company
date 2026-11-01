@@ -19,6 +19,19 @@ npm run contract:test   # forge build + ERC721 tests on a throwaway local anvil 
 
 `dist/` is committed and is what gets hosted; rebuild after any source change.
 
+The revision regressions exercise the built export under `/preview/`, using intercepted test fixtures only (never a public demo fallback). Install Playwright 1.58.2 and Chromium outside the repository, then run:
+
+```
+PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types tests/revision.mjs
+# Also exercise a held wallet request, rejection, failure, receipt and duplicate session on local Anvil:
+forge build
+MINT_CHAIN=1 PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types tests/revision.mjs
+```
+
+The second command needs `anvil` on PATH; it deploys only on its disposable local chain, installs that chain's Multicall3 helper, and supplies test configuration through its own preview server. It does not change `public/hatchery.config.json`. Screenshots and results go to `test/scratch/revision/`. `CHECK_FILTER` optionally selects test names. `WEBKIT=1` adds WebKit when its runtime is available.
+
+To regenerate the 1200×630 share card with the site's existing, self-contained SVG portrait, run `PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types scripts/share-card.mjs`, then rebuild.
+
 ## Layout
 
 - `src/rules.ts` validation, lamp power, palette, pattern schedule, growth, lamp geometry
@@ -52,3 +65,5 @@ then put the address in `dist/hatchery.config.json` (and `public/hatchery.config
 ## Validation (actual results)
 
 See `VALIDATION.md` for the full record.
+
+Revision: all five reopened findings were reproduced and corrected. The current validation record distinguishes the successful local mint tests from the still-unperformed Sepolia deployment, source verification and public testnet mint. No address, hardware data, transaction or check result was fabricated.
