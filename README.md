@@ -1,69 +1,107 @@
 # Squeek Hatchery
 
-Hatch a cozy hamster with light. A real hamster's wheel (the public Squeekchain status API) powers a lamp; you drag the lamp up and down beside a stationary egg for 60 seconds of valid, visible play. The shell turns see-through only under the beam. At hatching the same hamster is revealed, named, reviewed, saved or downloaded, and can optionally be minted as an ERC721 on **Sepolia (11155111) only**. No ERC20, no pool, no mainnet.
+NFT minting is not live yet. It will be enabled in a future update.
 
-Improved from the prototype at github.com/0xvictorvn/squeek-hatchery (main): rules ported to TypeScript, 200-unit special windows deleted, pattern development no longer gated on new work, front-view art rewritten, shell window added, wallet flow moved to @wagmi/core + viem.
+Local demo with real hamster data. Planned: limited NFT eggs, owner-hatched into personal hamsters shaped by their choices and real data.
 
-## Install, preview, rebuild
+This continues the existing Squeek Hatchery site, with its cream/plum incubator and stationary egg. **Demo, wallet integration and upgradeable Sepolia contract TEST SOURCE only. No public deployment was performed or is needed for this delivery.** The static export keeps both contract and proof-service addresses null. The supply cap is undecided and must be selected explicitly at proxy initialization; this repository invents neither a cap nor an admin.
 
-Node 22+.
+## Install, preview and rebuild
 
-```
+Use Node 24+ and the existing, unchanged package manifest and lockfile.
+
+```sh
 npm ci
-npm run dev        # local dev server
-npm run build      # tsc --noEmit, then vite build into dist/ (relative ./ asset URLs)
-npm run preview    # serve the built dist/
-npm test           # rule, art and metadata unit tests
-npm run contract:test   # forge build + ERC721 tests on a throwaway local anvil chain (needs Foundry)
+npm run dev
+npm run typecheck
+npm test
+npm run build
+npm run preview
 ```
 
-`dist/` is committed and is what gets hosted; rebuild after any source change.
+The committed `dist/` is the complete static site. Vite uses `base: "./"`; asset URLs are relative, and navigation uses hashes. Serve it over HTTPS (or localhost) for Web Locks, storage and wallet APIs. Rebuild after source or `public/` changes; publish only the resulting export through the existing hosting workflow. No service worker, relay, private key or backend is bundled.
 
-The revision regressions exercise the built export under `/preview/`, using intercepted test fixtures only (never a public demo fallback). Install Playwright 1.58.2 and Chromium outside the repository, then run:
+Validation here used an external dependency mirror to preserve the protected repository paths. A normal checkout can use the commands above. `npm run build` runs the typecheck before Vite. The existing dependency graph emits a browser-externalization warning for `node:worker_threads` inside `ox`; tested app flows have no page errors.
 
-```
-PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types tests/revision.mjs
-# Also exercise a held wallet request, rejection, failure, receipt and duplicate session on local Anvil:
-forge build
-MINT_CHAIN=1 PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types tests/revision.mjs
-```
+## Use the demo
 
-The second command needs `anvil` on PATH; it deploys only on its disposable local chain, installs that chain's Multicall3 helper, and supplies test configuration through its own preview server. It does not change `public/hatchery.config.json`. Screenshots and results go to `test/scratch/revision/`. `CHECK_FILTER` optionally selects test names. `WEBKIT=1` adds WebKit when its runtime is available.
+Select **Try demo → Get demo egg → Incubate**. The same local card becomes a hamster after 60 valid, visible seconds. Name it, review it, save it and download its SVG/JSON. **Show coat / Show accessory** changes only the view: every canonical save/export includes the accessory. A new egg is available afterward; one unhatched demo egg is retained at a time.
 
-To regenerate the 1200×630 share card with the site's existing, self-contained SVG portrait, run `PLAYWRIGHT=/absolute/path/to/playwright/index.mjs node --experimental-strip-types scripts/share-card.mjs`, then rebuild.
+Progress and the collection use `squeek-hatchery-v3` in this browser. Incubation saves once per active second and on page lifecycle changes; a crash can lose up to the last unsaved second. Reload or history restoration requires an explicit resume and a three-second recovery period. There is no offline growth. An origin-wide Web Lock prevents concurrent incubations in other tabs; unsupported/insecure browsers receive an explanation instead of an unsafe fallback. Demo play does not depend on a wallet, contract or RPC.
 
-## Layout
+Existing v2 portraits remain unchanged in **Legacy portraits**, rendered as images and downloadable. New hamsters have no fur patterns. They carry a stable accessory ID/version and art version 3. Demo cards never become NFTs; NFT eggs start from an onchain claim/transfer and have separate owner/token-specific drafts.
 
-- `src/rules.ts` validation, lamp power, palette, pattern schedule, growth, lamp geometry
-- `src/art.ts` hamster, patterns, miniatures, shell; `src/metadata.ts` traits and JSON
-- `src/wallet.ts` connect sheet data, Sepolia mint; `src/app.ts` UI; `src/style.css` tokens and layout
-- `contracts/SqueekHatchery.sol` ERC721; `public/hatchery.config.json` owner-settable contract address
-- `tests/` unit, contract (anvil) and end-to-end (Playwright) tests
+## Light, hardware and accessories
 
-## Rules implemented
+The production site fetches only `https://api.squeekchain.com/v1/status`. It accepts schema v1, hardware provenance, online ACTIVE/IDLE measurements, bounded integer counters and fresh observation/receipt timestamps. Freshness is the smaller of the API limit and 15 seconds. Missing, stale, simulated, faulted, malformed and replayed readings pause growth. The last accepted replay baseline survives failures and reloads. Same-epoch work cannot decrease; distance can reset on a new UTC day. Hardware recovery and returning to a visible tab wait three seconds.
 
-- `GET https://api.squeekchain.com/v1/status`, no key. Accepts only `schemaVersion 1`, `provenance: hardware`, `freshness: online`, `coreStatus` ACTIVE/IDLE, integer fields, digit-string `cumulativeWorkUnits` (BigInt), `receivedAt` within `staleAfterSeconds`. Missing, stale, simulated, derived, COUNTER_FAULT, malformed or replayed (time or counter moving backwards in one epoch) data pauses incubation; nothing is filled in. Resume after a 3 s countdown. Hidden tabs pause and stop polling; no catch-up. Polls every 4 s, 6 s timeout, backoff to 60 s, honours Retry-After.
-- RPM = rpmMilli/1000; daily meters = distanceMm/1000. Lamp power 12% at IDLE to 100% at 120 RPM, capped.
-- Color depth and pattern visibility both come from local light dose (power x time), capped (82% / 62%), so color deepens without going black and an idle session develops its locked pattern. Work only selects the pattern.
-- Hue from UTC date + 5 m segment. Pearl 250-254.999 m, 750 m, ...; rainbow 500 m, 1000 m, ... (5 m each). New light gradually replaces only the lit region's color.
-- Patterns: 50-unit buckets cycling spots/patches/stripes; stars at 1000-1049, 3000-3049 ...; swirls at 2000-2049, 4000-4049 .... Family and layout lock at start.
-- Waiting times are estimated from the measured work and distance rate of the last 3 minutes, or shown as unknown while the wheel rests.
+The lamp follows RPM from a 12% IDLE maintenance glow to full power at 120 RPM. **Local intensity × active time**, rather than work deltas, develops ears/base fur, cheek/chest fluff, lower coat/pom and local color. The lamp stays perpendicular to the stationary shell. Moving it restores the opacity outside the new soft window; hidden development persists.
 
-## NFT and deployment status
+Ordinary colors change every 5 m of daily distance. Pearl appears at 250 m then every 500 m; rainbow at 500 m then every 500 m. Each special passage lasts 5 m. The UI shows current/next swatches and remaining meters; there is no color picker.
 
-The contract stores the raw portrait SVG, the trait JSON and the name; `tokenURI` builds the metadata on-chain, so token, download and hatched animal match. Free, nonpayable mint; one mint per session ID in total; no owner or setters. SVG capped at 12,000 bytes so a mint stays under the 16,777,216 per-transaction gas cap (measured: 8.35M gas typical, 9.77M at the caps on anvil).
+Work units are API units, **not revolutions**. `floor(work / 50) % 10` selects: neckerchief, bow tie, short open vest, tiny satchel, acorn pendant, daisy ear clip, leaf lapel pin, round glasses, miniature beret, seed brooch. Stardust Crown overrides at 1,000–1,049 and every 2,000 thereafter. Aurora Wing Brooch overrides at 2,000–2,049 and every 2,000 thereafter. Every window lasts 50 units, then ordinary rotation resumes. BigInt preserves exact counters; the accessory locks once at incubation start and appears only after hatch.
 
-**Not deployed.** This run had no authorized, funded Sepolia signer, so no deployment, verification or live mint happened, and no address is configured: the mint button reads "Mint unavailable: contract not configured". To finish:
+**Artwork study · synthetic QA** is explicitly labeled synthetic. It shows same-color low/medium/high fur, mixed regional growth/colors, pearl/rainbow and all 12 accessories. It never supplies production hardware readings or inserts companions into a collection.
 
-```
-forge create contracts/SqueekHatchery.sol:SqueekHatchery --rpc-url <sepolia rpc> --account <your keystore> --broadcast \
-  --verify --etherscan-api-key <key>      # check chain id 11155111 first
+## Wallet and NFT test integration
+
+One Connect control supports EIP-6963 browser wallets, phone links for MetaMask/Coinbase/Rabby/Phantom, and Coinbase Smart Wallet through the existing wagmi core connector stack. Connection requests accounts; it never asks for a message signature or transaction. Address, wallet chain and actual Sepolia ETH are read; RPC failure shows unavailable. RPC chain identity is checked before labeled Sepolia balances/contract reads. Wallet changes pause/deselect NFT drafts and trigger fresh holdings/eligibility checks.
+
+`public/hatchery.config.json` (and the exported `dist/hatchery.config.json`) contains:
+
+```json
+{
+  "chainId": 11155111,
+  "contractAddress": null,
+  "startBlock": null,
+  "proofServiceUrl": null,
+  "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "explorer": "https://sepolia.etherscan.io"
+}
 ```
 
-then put the address in `dist/hatchery.config.json` (and `public/hatchery.config.json`) as `contractAddress`. No rebuild needed. Never commit keys.
+`contractAddress` must be the compatible ERC1967 **proxy**, not the implementation. `startBlock` is the proxy's actual deployment block as a decimal string; enumeration reads do not require a log index. No invented deployment values are supplied. Updating the exported JSON and reloading enables a compatible deployment without rebuilding JavaScript. Keep the public export null for this assignment.
 
-## Validation (actual results)
+**My NFTs** always exposes claim/hatch actions and their disabled reasons. A null contract says **Contract not deployed** and holdings are **unavailable**, never inferred to be zero. A compatible configured contract enables paginated holdings, one free claim per wallet plus gas, egg selection, incubation and review. Hatching additionally requires both an onchain verifier and a real proof service. An absent service explicitly disables hatch. Owner/chain/account are rechecked before signing/submission; the contract enforces ownership again. Rejection/revert restores controls; names are locked through proof/check/signing/receipt states, and a confirmed result is frozen. Success is reported only after a successful receipt and the expected event.
 
-See `VALIDATION.md` for the full record.
+Run `node scripts/check-delivery.mjs` to verify relative export assets, ABI/compiler-source parity, null public config and submission/path budgets. The required artifact allowlist and its explicit 768 KiB budget are in [PATH-BUDGET.md](artifacts/PATH-BUDGET.md).
 
-Latest revision: unavailable color and pattern previews now wrap within their cards at 320px, keeping complete labels and full-size swatches. Build, typecheck, unit tests and Chromium layout checks passed; see `VALIDATION.md` for results and browser limitations. The previous five-finding revision and its local mint tests remain documented separately from the still-unperformed Sepolia deployment, source verification and public testnet mint.
+See [deployment and compiler details](artifacts/DEPLOYMENT.md), [proof-provider protocol and trust model](artifacts/PROOF-PROTOCOL.md), [design system](DESIGN.md) and [actual validation/limits](VALIDATION.md).
+
+## Local checks with mocks
+
+The supplied contract artifacts were compiled using solc 0.8.30, optimizer 200, Prague, OpenZeppelin 5.4.0 from the unchanged lockfile. The full ABI, bytecode, storage layouts and standard JSON compiler input are under `artifacts/contracts/`; the generated frontend ABI is `src/abi.ts`.
+
+With Foundry's `anvil` on PATH:
+
+```sh
+node --experimental-strip-types --test tests/contract.chain.ts
+```
+
+That test deploys only on a disposable loopback chain with chain ID 11155111, using its unlocked accounts. No fixed key, public contract or funded signer is required. It tests claims, transfers, signed proof bindings/nonces, input/cap limits, callbacks, two-step admin transfer and upgrade storage retention.
+
+To recompile without changing the locked dependency graph, install solc 0.8.30 in an external tool directory and point at its module (or use the existing Foundry build with a locally available compiler):
+
+```sh
+SOLC_MODULE=/absolute/path/to/solc/index.js node scripts/compile-contracts.mjs
+npm run typecheck
+```
+
+`compile-contracts.mjs` expects the normal checkout's `node_modules/@openzeppelin/contracts` from `npm ci`; it also refreshes `src/abi.ts`. The existing `npm run contract:test` uses Foundry then the same local-chain suite against the delivered artifacts; run the solc-js compiler above when regenerating those artifacts.
+
+Install Playwright outside the repository, then use its module/browser path:
+
+```sh
+PLAYWRIGHT=/absolute/path/to/playwright/index.mjs \
+PLAYWRIGHT_BROWSERS_PATH=/absolute/path/to/browsers node tests/e2e.mjs
+```
+
+This serves the actual export under `/preview/`, intercepts synthetic hardware only inside test browser contexts, and configures the local chain/mock proof service through the runtime JSON response. Null → configured contract → proof service flows use **the same bundle without a rebuild**. A virtual clock advances normal 60-second play; production has no short timer or fake-signal flag. Screenshots/results are written only to disposable `test/scratch/e2e/`.
+
+Regenerate the share image with `PLAYWRIGHT=... PLAYWRIGHT_BROWSERS_PATH=... node scripts/share-card.mjs`, then rebuild. All installs/caches/browser binaries stay outside the submission.
+
+## Source map and attribution
+
+`src/rules.ts` owns pure signal/schedule/growth rules; `src/storage.ts` owns demo cards and Web Locks; `src/art.ts` owns canonical SVGs/accessories; `src/metadata.ts` owns attributes/JSON; `src/nft.ts` owns ABI result/proof hashing; `src/wallet.ts` owns wallet/RPC/transaction guards; `src/app.ts` wires the existing single-page product. `src/style.css` supplies the shared tokens and responsive components.
+
+Design review used Jakub Krehel's Better Interface (MIT, pinned commit 267330e1adfc66a718fb65fa6918c1f06d0a689e) and Paul Bakaus's Impeccable documentation method (Apache-2.0, pinned commit 9d715cc4f5564a990ca8345abfdd5df6dc9b41c8); the resulting design documentation was adapted for this implementation. Notices/licenses are retained in `artifacts/DESIGN-GUIDANCE-LICENSE.txt`. Wallet marks derive from RainbowKit (MIT; `artifacts/WALLET-ICONS-LICENSE.txt`); the Coinbase mark follows the pinned wallet guide. OpenZeppelin's license accompanies the verification sources in `artifacts/OPENZEPPELIN-LICENSE.txt`.

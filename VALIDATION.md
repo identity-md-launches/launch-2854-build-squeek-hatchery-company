@@ -1,97 +1,122 @@
-# Preview reflow revision (latest)
+# Validation — 2026-11-02
 
-Scope: finding `f79080a0be39d8681761bf19a7663c15b4e258b7b0cd07cb9e360321e4922d99`. The existing implementation was retained; the source change is limited to the three preview layout rules at `src/style.css:113–115`. Documentation, the finding response and the production export were updated.
+This is worker-side evidence for the continued Squeek Hatchery assignment, not an independent behavior/security certification. The deliverable is a static local demo, real wallet integration and upgradeable **TEST SOURCE**. Public contract/proof-service configuration remains null. No public deployment, hosting command, source-verification transaction or external message was sent.
 
-Before the fix, aborting the status request or returning an invalid measurement at 320×844 reproduced unavailable captions escaping both cards. Color/pattern rows ended at x=310.28/318.28 instead of their content boundary x=288; the card edge is x=304. This Chromium runtime measured document width 320 rather than the reviewer's 336, so that exact page-width result was not reproduced. The shared intrinsic-width defect was confirmed in measurements and a screenshot.
+## Scope and actual checks
 
-Correction: `.pair` uses two `minmax(0, 1fr)` columns; figures and captions use `min-width: 0`; captions wrap with `overflow-wrap: anywhere`. All four complete unavailable labels remain visible at the existing 13px size. Color swatches remain 44×44px and pattern miniatures 48×48px. No clipping, ellipsis, new dependency or application-logic change was introduced.
-
-## Checks in this revision
-
-Dependencies were installed from the unchanged lockfile in a temporary source mirror, outside the submission. Builds ran there and the production export was copied into repository-root `dist/`. No ignore-file changes were made.
-
-- `npm run typecheck`: passed.
-- `npm run build`: passed, including a final build after the design probe. The existing dependency still emits its `node:worker_threads` browser-externalization warning.
-- `npm test`: 12/12 passed.
-- `PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node test/scratch/preview-reflow.mjs --verify`: all nine Chromium combinations passed: aborted request, invalid measurement and fresh IDLE fixture, each at 320/390/1440. Both preview rows now end at x=288 at 320px; document width equals viewport width throughout. Assertions cover complete labels, caption/text bounds, unchanged font and graphic sizes, no page errors and no failed local resources. Fixtures exist only in the validation harness.
-- `PLAYWRIGHT=<provided module> PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node tests/revision.mjs`: 8/8 passed on the rebuilt export under `/preview/`. Covers repeated replay, four interruption/recovery cases, a full hatch/name/save/download flow, 30-character names, and exact 19/78-digit counters. Contract and wallet tests were not rerun for this CSS-only revision.
-- `IMD_PLAYWRIGHT=<provided module> PLAYWRIGHT_BROWSERS_PATH=<provided browsers> node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste`: 15/16 passed; layout passes at 320/390/1440. The existing `eyebrows` warning identifies the required header Connect button; it remains a wallet action, not a kicker. No unrelated redesign was made.
-- Inspected the before/after missing-signal panel screenshots, the final 390×844 first screen and the probe's mobile/desktop views. The egg, lamp, directions, aim controls and Begin incubation are visible on the 390px first screen; the button spans y=750.27–798.27.
-- Final integrity: the last build matches the checked `dist/` byte for byte; relative assets loaded successfully under `/preview/`. The export is 428,029 bytes and the source/export/documentation submission is under 700,000 bytes (8,388,608-byte limit). No dependency directories, npm archives, source maps or ignore-file changes are included.
-
-Scratch evidence: `test/scratch/preview-reflow/{before,after}.json`, its before/after panel screenshots, `test/scratch/revision/results.json`, and `test/scratch/taste/`. Scratch files are validation-only and are not submitted.
-
-## Better Interface coverage for the changed previews
-
-| Domain | Review and result |
+| Area | Result |
 | --- | --- |
-| Accessibility | Complete signal-state labels stay readable at 320px; full-size graphics are retained. Screen reader and native zoom checks were not performed. |
-| Layout | Measured missing/invalid/IDLE preview bounds at 320/390/1440; both rows stay within their cards. |
-| Writing | Existing English labels, including all four complete “Unavailable” values, are preserved. |
-| Typography | Caption wrapping replaces intrinsic overflow; computed font size stays 13px. No clipping or smaller text. |
-| Colors | Existing tokens are preserved; the probe passes its measured text contrast checks. No comprehensive artwork/gradient contrast audit is claimed. |
-| UI | Full-size swatches and miniatures remain aligned with captions; unavailable stripes and valid previews were visually inspected. |
+| Production build | Pass: `npm run build`, TypeScript then Vite 8.3.5, relative assets |
+| Typecheck | Pass: `npm run typecheck` (`tsc --noEmit`) |
+| Rules/art/export tests | 12/12 pass (`npm test`) |
+| Local contract suite | Pass: one integrated scenario with 43 negative checks, proxy initialization/callback rollback, two-step admin transfer and upgrade storage retention |
+| Production-export Chromium suite | 11/11 pass, zero page errors or missing local resources |
+| Phone wallet sheet and input QA | Pass: four Open in links + Coinbase Smart Wallet, all local marks loaded; touch, mouse drag, keyboard, Escape/focus return; no page errors |
+| Design probe | 15/16 pass; retained header Connect control is the only heuristic warning |
+| First 390 px screen | Product and Get demo egg visible; no horizontal scroll |
+| Share metadata/image | Title, favicon, description, og:title/og:image present; regenerated PNG inspected at 1200×630 |
+| Public deployment | Intentionally unperformed; contract/startBlock/proofServiceUrl are null |
 
-Complete for this revision's finding. WebKit could not launch because its executable is unavailable; no WebKit/Safari result is claimed. The assigned browser connector returned `Transport closed`, so rendered inspection used Playwright screenshots and measurements instead. Physical-device, screen-reader, native 200% zoom and RTL sessions were not performed. The earlier Sepolia deployment limitation remains documented below.
+Dependencies were installed from the unchanged lockfile in a temporary source mirror. All dependency/cache/browser directories stayed outside the repository. The final source/public files were copied to that mirror, built, and its clean `dist/` copied back. The production export is delivered beside source and the existing lockfile. The build's existing `ox` dependency emits a `node:worker_threads` browser-externalization warning; application page-error/resource checks passed in the tested flows.
 
----
+Commands actually run (external tool paths abbreviated):
 
-# Previous revision validation (2026-11-02)
+```sh
+npm run typecheck
+npm test
+SOLC_MODULE=<external-solc-0.8.30-module> node scripts/compile-contracts.mjs
+node --experimental-strip-types --test --test-force-exit tests/contract.chain.ts
+npm run build
+PLAYWRIGHT=<external-playwright> PLAYWRIGHT_BROWSERS_PATH=<external-browsers> node tests/e2e.mjs
+IMD_PLAYWRIGHT=<external-playwright> PLAYWRIGHT_BROWSERS_PATH=<external-browsers> \
+  node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste
+PLAYWRIGHT=<external-playwright> PLAYWRIGHT_BROWSERS_PATH=<external-browsers> node scripts/share-card.mjs
+node scripts/check-delivery.mjs <fresh-production-export>
+git diff --check
+```
 
-The five reopened findings were reproduced in the previous production export and corrected in the existing implementation. The source, lockfile and rebuilt `dist/` are delivered. This is worker-side evidence, not an independent certification.
+The phone input/wallet-sheet check ran as a bounded Playwright script in `test/scratch/mobile-wallet.mjs`; results are `test/scratch/mobile-wallet-results.json`. Synthetic data/virtual time exist only in QA browser contexts and the explicitly labeled artwork study. Production has no fake-data fallback, quick-hatch flag or automatic offline timer.
 
-The wider assignment remains **incomplete for public Sepolia deployment**: no authorized funded signer was supplied, so deployment, source verification and a public testnet mint remain unperformed. `public/hatchery.config.json` and its exported copy retain an honest `null` contract address, and the site explains that minting is unavailable. README.md retains the authorized deployment/configuration path. No address, live hardware data, deployment, transaction or check result was fabricated. Local test fixtures are confined to validation scripts.
+## Contract/security evidence
 
-## Findings reproduced and fixes
+Compiler: solc **0.8.30+commit.73712a01**, optimizer 200, Prague, viaIR false; locked OpenZeppelin **5.4.0**. Compiler input, ABI/bytecode/storage layouts and generated frontend ABI match the delivered source. Runtime implementation size is **14,550 bytes**, below EIP-170's 24,576 bytes.
 
-| Finding | Reproduction in the previous export | Correction and recheck |
+On a disposable Anvil chain with chain ID 11155111, tests covered implementation initializer lock; atomic proxy initialization and zero admin/cap rejection; one claim/address; permanent claim state after transfer; recipient's separate claim; owner-only one-time hatch on the same token ID; operator rejection; unset verifier; wrong signer/chain/proxy/token/owner/result hash/expiry; empty signature; nonce replay and atomic rollback on verifier failure; bounded name/SVG/traits/growth/accessory/version inputs; cap exhaustion; nested receiver claim/hatch; rejecting receiver rollback; unauthorized verifier config/upgrades/admin calls; direct implementation upgrade rejection; incompatible implementation rejection; reinitialization; two-step admin acceptance; and actual post-upgrade state retention.
+
+Measured gas on the final local run:
+
+- Claim: **194,344** gas.
+- Canonical mixed/special-coat hatch: **10,989,948** gas, **14,472-byte SVG**.
+- Maximum accepted 16,000-byte SVG + 1,500-byte attributes payload: **12,656,559** gas, below 16,777,216.
+- Unit extreme-art fixtures across all accessories reached **14,425 bytes**; these are sampled bounds, not a proof over every possible floating-point session. Onchain caps remain enforced regardless.
+
+The test upgrade retains owner/pending-admin behavior, cap, verifier, claim flags, owner/enumeration, seeds, hatch flag, consumed nonce and stored companion/metadata. Slot/offset/type/label checks accompany runtime checks. It establishes retention for the supplied function-only test upgrade; arbitrary future upgrades remain an admin trust risk.
+
+TokenURI JSON equals the exported JSON after parsing, and its embedded SVG equals the downloaded canonical SVG exactly. No user/NFT/legacy SVG is inserted as HTML. The live stage is generated from validated numeric session data. Mock verifier/server/signers are test-only, use disposable chain accounts and never enter public config. See `artifacts/PROOF-PROTOCOL.md` for the absent real service and its required independent hardware/session validation.
+
+## Browser scenarios and rendered evidence
+
+The Chromium harness serves the actual export at `/preview/`, exercising relative assets. It intercepts synthetic hardware only inside isolated QA contexts and changes runtime configuration responses without rebuilding the JavaScript. It uses the real local ERC721 proxy/mock verifier and a loopback proof endpoint.
+
+1. First screen/subpath/null contract, real-address display, rejected connect retry, and no signing/transaction on connection.
+2. Same local card ID becomes hamster; 30-character name; save/reload; coat-only view; exact SVG/JSON equality; new egg afterward; reflow at 320/390/768/1440.
+3. Network/stale/simulated/fault interruptions; repeated backwards-counter replay against retained baseline; recovery delay; synthetic document visibility pause; reload preserves progress without offline growth.
+4. Two tabs cannot concurrently incubate or create a duplicate egg.
+5. Keyboard lamp and all 21 labeled artwork studies at mobile/desktop widths, including all 12 accessories.
+6. Configured-contract holdings and claim; wrong wallet chain/switch; rejection then retry; absent proof service; RPC failure; separate demo collection.
+7. NFT incubation/review; bad verifier proof then retry; locked rename/name/mode controls while signing/pending; no pre-receipt success; confirmed frozen name and tokenURI/export parity.
+8. Account change pauses/deselects the NFT draft; wallet-connected demo still completes with RPC failure.
+9. Transfer of the active egg stops growth, preserves its owner draft, disables further incubation and releases the mode lock.
+10. A wrong-chain RPC yields unavailable holdings and disabled actions, then recovers after a valid RPC response.
+11. Synthetic pagehide/pageshow restoration preserves progress without automatic growth, then reacquires the lock on Resume; lamp aim chosen before Incubate is retained. Native browser BFCache eligibility was not measured.
+
+A live-export console check observed zero console errors and a valid IDLE hardware signal. It also observed one aborted fetch of the entry URL (`net::ERR_ABORTED`); aborted fetches are excluded from missing-asset checks, and no missing local asset was found.
+
+A separate emulated-phone Chromium session checked the actual mobile connect sheet's four vendor links and Coinbase Smart Wallet label/icons, then touch, mouse and keyboard lamp changes, Escape dismissal, visible focus and no overflow. It did not open native wallet apps or complete a Coinbase passkey flow.
+
+Screenshots inspected: `test/scratch/taste/shots/{390,1440}.png`, the mobile wallet/focused lamp images, `test/scratch/e2e/hamster-result.png`, the synthetic mobile/desktop art studies and the regenerated share image. Scratch evidence is intentionally removed from submission; the reusable harness, worker result record and static art study remain delivered. No physical-device, screen-reader or Safari observation is claimed.
+
+## Better Interface consolidated review
+
+Read/applied the pinned workflow and all six domains. Existing brand/stack were preserved. DESIGN.md records actual final-source tokens, typography, surfaces, components and responsive behavior.
+
+| Domain | Checked coverage and corrections | Unperformed/limits |
 | --- | --- | --- |
-| Replay baseline (`src/app.ts:22`, `src/app.ts:198`) | Accept 1,000 units, then repeatedly send the same epoch at 900 units and an older observed timestamp with fresh receipt times. The timer paused at 0:57, then advanced to 0:46 and displayed 900. Network, stale, simulated and fault interruptions also erased the baseline. | Keep `replayBaseline` separately from the usable `reading`; only accepted measurements replace it. Repeated replays remain unavailable and paused at 0:57. Newer valid data resumes after three seconds, and a valid epoch reset resumes without changing the egg's locked pattern. |
-| Mobile overflow (`src/style.css:74`, `src/style.css:110`, `src/style.css:142`, `src/style.css:154`) | A 30-W name produced a 728px name box and 760px page at 320px. The reported 19-digit counter produced a 365px page; the supported 78-digit limit produced 1,137px. | Allow grid children to shrink, use `minmax(0, 1fr)` stats columns, and wrap complete names and counters, including locked-work and trait values. Keep existing type sizes; no clipping or ellipsis. Reflow checks cover the name and collection at 320/390/768/1440, and counters at 320/390 before and after locking. |
-| Share image (`public/og-image.png`, `scripts/share-card.mjs:1`) | Visual inspection confirmed the broken-image glyph was baked into the old PNG. | Capture the site's existing inline hamster SVG with the existing cream/brown identity. Inspected the regenerated illustration; source/export PNGs are identical and decode as 1200×630. No image requests or unresolved image element are used. |
-| Pending mint rename (`src/app.ts:444`, `src/app.ts:485`, `src/app.ts:613`) | Hold the local wallet send request, rename Original Pip to Changed Pip, release it, and read tokenURI: token/collection said Original Pip; review/JSON said Changed Pip. | Disable and guard rename/form submission and starting another egg while busy. Render success from the frozen minted record; saves and downloads use that record. The local-chain browser check passes with all four names Original Pip, exact SVG/metadata equality, rejection/failure recovery, and checking/signing/pending guards. |
-| Repeated first-screen copy (`src/app.ts:58`, `src/app.ts:233`) | The pinned probe measured 50 prose words on mobile and 128 on desktop with valid IDLE data. | Shorten the lead, resting state, pre-lock note and idle ETA. Keep directions, hardware caveat, real amounts and rate-based estimates. Final probe: 36 prose words at 390 and 83 at 1440. |
+| Accessibility | Native controls/labels/disabled states; lamp slider keyboard and touch; visible white stage focus; sheet inert background, Tab trap, Escape/focus return; inline name errors and text status independent of color | No screen-reader session, physical-device testing or full accessibility audit |
+| Layout | Main action before stage at 390; measured 320/390/768/1440 reflow; complete long names; shrinkable preview/stat grids; bottom sheet; local/NFT mode state boundaries | No browser-native 200% zoom, RTL or localization stress session |
+| Writing | Exact requested intro/not-live status; plain Claim/Incubate/Review labels; explicit unavailable holdings and verifier/service reasons; no invented dates/supply or cheat-proof claim | English only; no user study |
+| Typography | Six-token source scale, three weights, system stack, wrapping names/addresses/counters, tabular live values, 16 px input | Platform fallback variation; no separate font/zoom audit |
+| Colors | Existing semantic palette retained; probe passes measured solid text/background requirements (4.5:1, 3:1 large); exposed/local coat masks reviewed with pearl/rainbow and unlit areas | Not a complete artwork/gradient/alpha contrast certification |
+| UI | Loading/empty/error/retry/pending/receipt/frozen states; wallet marks; stationary shell/lamp; saved egg→hamster cards; accessory/coat view and canonical export; reduced motion probe | WebKit runtime unavailable; no native wallet/Coinbase passkey session or Animations-panel 10%-speed review |
 
-The response file for that revision recorded its individual verdicts. The current `.imd-responses.json` answers the latest single finding above.
+Applicable findings fixed in this assignment (source locations refer to the final implementation):
 
-## Build and interaction checks
+| Finding / impact | Source, observation, correction and recheck |
+| --- | --- |
+| High: previous mint flow/status conflicted with the new task | `src/app.ts:95`, `src/wallet.ts:65`, runtime config. Exact intro/status, wallet-free egg card, separate My NFTs, null contract/service and explicit disabled reasons replace optional portrait mint. Browser null/configured flows pass. |
+| High: progress/collection needed one persistent identity and concurrency control | `src/storage.ts:83`, `src/storage.ts:101`, `src/app.ts:560`. One egg card is updated, active progress is saved, Web Locks serialize tabs; no offline advancement. Save/reload/new egg/two-tab/history-event regressions pass; restored pages pause before reacquiring a lock, and pre-start lamp aim is retained. |
+| High: onchain owner/proof/upgrade enforcement absent in previous source | `contracts/SqueekHatchery.sol:53`, `:80`, `:125`. Locked/atomic initialized UUPS source, owner verifier config, bound signed result/nonces, owner-only hatch and two-step admin transfer. Local negative/upgrade/callback tests pass. |
+| Medium: anatomy/fur/old patterns did not match the brief | `src/art.ts:71`, `:96`, `src/rules.ts:282`. Union exterior, connected body/head, independent curved regional fur and short attached pom; pattern generation replaced by 12 anatomy-anchored accessories. Labeled study and canonical exports inspected/tested. |
+| Medium: SVG filter showed a solid rectangle behind the egg | `src/art.ts:96`, explicit `edgeAlpha` / `edgeColor` / `outline` filter inputs. The reproduced rectangle disappeared in final stage/portrait screenshots. |
+| Medium: coat clip reuse dropped local color/shading in an intermediate render | `src/art.ts:96`, concrete silhouette in the clipPath. Restored local color/shading, feathered neighboring exposures; visually checked mixed colors, pearl and seven-color rainbow in the art study. |
+| Medium: small pins were unreadable as full-animal miniatures | `src/art.ts:52`, crop-specific accessory viewBoxes. Current/next seed/brooch/clip miniatures now use their shapes' bounds; desktop/mobile study inspected. |
+| Medium: hidden pom could protrude outside an opaque shell | `src/app.ts:233`, `eggInterior` stage clip. The animal stays inside the shell before hatch; the same group is unclipped afterward. Hatch regression checks both states; final stage inspected. |
+| Medium: ownership loss could leave a paused NFT locking other modes | `src/app.ts:1246`, stop/save/release path on failed ownership refresh. Transfer-during-incubation browser regression checks disabled old egg and return to demo. |
+| Medium: asynchronous retry refresh could expose transient controls or leave claim disabled | `src/app.ts:1281`, await eligibility/holdings refresh while locked, then explicitly refresh all controls; freeze confirmed review immediately. Rejection, proof failure/retry and held-signing/receipt regressions rechecked. |
+| Medium: discovered wallet metadata/focus needed defensive handling | `src/app.ts:1381`, escaped labels/data-image attributes, local fallback marks, stale-sheet guards and focus return to the current header node. Rejected connect retry plus phone sheet/Escape/icons checks pass. |
+| Low: inherited ordinary hue names did not match the swatches | `src/rules.ts:248`, hue-anchor names aligned with their actual HSL colors; added primary-hue and 78-digit work boundary checks to the existing rule suite. |
+| Medium: first-screen desktop prose exceeded the probe budget | `src/app.ts:399`, shortened saved/lock notes while preserving required copy. Probe recheck passes copy budget at mobile/desktop. |
 
-Dependencies were installed using the unchanged lockfile in a temporary source mirror, keeping all dependency directories outside the submission. The final source was copied into that mirror, built, and its clean export copied back to `dist/`. The direct initial build had no installed TypeScript compiler; installing dependencies in the temporary mirror resolved it.
+Final taste@1: render, layout, targets, contrast, casing, tracking, type sizes/faces, glyphs, slogans, repetition, copy budget, chrome, motion and share pass. The one `eyebrows` warning identifies the required **Connect button in the header** above h1; it is a functioning wallet control, not an introductory kicker. Kept and documented. No unresolved reproduced high-impact design finding remains.
 
-- `npm run typecheck`: pass, `tsc --noEmit`.
-- `npm run build`: pass, TypeScript then Vite 8.3.5, with relative `./assets/` URLs. The existing dependency emitted a `node:worker_threads` browser-externalization warning; there were no application page errors in the tested flows.
-- `npm test`: 12/12 pass, covering status/schema/provenance/freshness, BigInt arithmetic, lamp power, color passages, 50-unit patterns, locking, idle light development, local preservation and exact art/metadata.
-- `node --experimental-strip-types --test tests/contract.chain.ts`: 1/1 pass on an isolated Anvil chain with chain ID 11155111. The unchanged contract was compiled using solc-js 0.8.30, optimizer 200 runs, Prague (matching foundry.toml), and the locked OpenZeppelin dependency. tokenURI equals local JSON; duplicate sessions, invalid inputs, nonpayable mint and size caps pass. Gas: 8,348,087 typical and 9,772,000 at the caps. This was a local test, not Sepolia deployment.
-- `PLAYWRIGHT=<external module> node tests/revision.mjs`: pass, 8/8 built-export Chromium regressions (repeated replay, four interruption/recovery cases, long names/collection/download equality, and two counter sizes). It serves the actual `dist/` under `/preview/`, intercepts hardware fixtures only in the browser context, and uses a virtual clock to advance valid play without changing the production timer.
-- `MINT_CHAIN=1 MINT_ONLY=1 PLAYWRIGHT=<external module> node tests/revision.mjs`: pass, using the actual ERC721 on a disposable Anvil chain. The harness deploys Multicall3 and copies its runtime to the Sepolia helper address on that local chain, without changing production RPCs or configuration. Tested EIP-6963 connection, wrong-chain display/switch, user rejection, RPC failure/recovery, held signing, pending receipt, success/token links, frozen names/art/traits, prevention of a second send, and on-chain duplicate-session rejection from another test account.
-- `PLAYWRIGHT=<external module> node scripts/share-card.mjs`: pass; regenerated the PNG from a self-contained SVG. The final production build includes it.
-- WebKit was attempted but could not launch because required runtime dependencies were unavailable. No WebKit/Safari behavior is claimed.
+## Limits and submission integrity
 
-The older `tests/e2e.ts` was not changed. Its previous SVG string-serialization comparison and wallet-connection assumptions are superseded by the revision harness: it compares portrait DOM nodes after normalization, tests downloaded SVG against JSON and tokenURI, starts the test wallet unauthorized, and deliberately emits a wrong-chain change after connection. No production connector changes were needed.
+- No public NFT contract or real proof service is provided/configured; both are deliberately null for this source-only assignment. A future real verifier/service and explicitly selected admin/cap are necessary before a separately authorized live integration. Signatures cannot prove play; the admin can change all rules by upgrade.
+- The supplied managed browser connector failed to launch its required Chrome distribution. Rendered validation used installed Playwright Chromium instead. WebKit was installed/attempted but could not launch due missing system libraries (including GTK/Pango); Safari/WebKit remains unverified.
+- Browser storage is local and finite; export a copy. Active progress is saved about once per second, so an abrupt crash can lose the last unsaved second. Web Locks require a current secure-context browser. API/RPC availability and vendor mobile links are external dependencies.
+- No screen reader, physical phone/wallet app, Coinbase passkey, native zoom, RTL or arbitrary future upgrade audit was performed. Synthetic QA and local-chain results do not establish production anti-cheat security.
+- Protected dependencies/build configuration and `.git/`, `.github/`, `.env` and node_modules paths were not modified. `.gitignore` has only a budgeted allowlist for the required artifacts, documented in `artifacts/PATH-BUDGET.md` (786,432-byte aggregate ceiling).
+- The export is a clean copy of the final production build with relative URLs, all runtime assets and null public config. No old hashed chunks, source maps, npm archives, vendored registry, dependency/cache directory or submodule is added.
+- Final byte measurements: 1,408,192 bytes across 60 added/modified work files (limit 8,388,608); required artifacts 482,587 bytes (budget 786,432); static export 583,282 bytes across 14 files. `scripts/check-delivery.mjs` checks these ceilings, local asset presence, public/export parity, ABI/compiler-source parity and optional byte-for-byte equality to the fresh production export. The root and artifact validation records are identical.
 
-## Design probe and rendered inspection
-
-Final command: `IMD_PLAYWRIGHT=<external module> node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste`.
-
-Result: **15/16 pass**. Render, layout, targets, contrast, casing, tracking, sizes, faces, glyphs, slogans, repetition, copy budget, chrome, motion and share all pass. The remaining `eyebrows` warning calls the required header Connect control a kicker above the h1 at 390. It is an actual wallet button in the conventional header position, not introductory copy; kept as required. No unrelated header redesign was made.
-
-The final 390×844 screen was inspected through the assigned browser tool: egg, lamp, directions, aim controls and Begin incubation are visible, with page width equal to the viewport. The rail accepts pointer input, focuses the slider, and ArrowDown changes the lamp position. The focused state was captured. The 1440×900 view was also inspected; the same product and live panels render in two columns. Browser console reported zero errors during that inspection. The probe separately checks 320/390/1440 reflow and reduced motion. Saved evidence is under `test/scratch/taste/shots/`, `test/scratch/browser-mobile.png`, `test/scratch/final-mobile.png`, `test/scratch/final-desktop.png`, `test/scratch/browser-tools/` and `test/scratch/revision/`; scratch evidence is intentionally excluded from submission.
-
-## Better Interface coverage
-
-The pinned Better Interface workflow and core principles of all six domains were read and applied to the changed surfaces. The existing cozy plum/cream stage, artwork, typography and component system were preserved. DESIGN.md now records the actual wrapping, grids, mint states and share-card generation.
-
-| Domain | Checked and corrected | Limits |
-| --- | --- | --- |
-| Accessibility | Native disabled states and explicit guards throughout pending mint; name label/error relationship retained; lamp keyboard/focus inspected; status text remains distinct from color. | No screen-reader session or automated full accessibility audit. |
-| Layout | Real supported names and exact counters reflow; shrinkable grid children; product/action visible at 390; measured reflow at 320/390/768/1440; visually inspected mobile stress cases and mobile/desktop probe views. | No browser-native 200% zoom, RTL or physical-device test. |
-| Writing | Removed repeated directions from the lead and shortened resting/ETA/lock copy. Signal-loss explanation, hardware caveat, thresholds and measured waits remain. | No localization scope; English only. |
-| Typography | Existing six-token scale and three weights retained; full important text wraps at unchanged sizes; multi-line names use line-height 1.4. | Intended system-font fallback varies by platform; no new font loading claims. |
-| Colors | Existing semantic tokens retained; final probe passes measured solid text/background pairs at 4.5:1 (3:1 for large text). | Artwork/gradient and every disabled alpha blend are not a comprehensive contrast certification. |
-| UI | Checking/signing/pending/rejection/failure/success states exercised with the real local contract; reviewed portrait, download and token match; regenerated share asset visually inspected. | WebKit could not run; no wallet app, Coinbase passkey or physical-device end-to-end session. No 10%-speed Animations-panel review. |
-
-## Remaining limits
-
-- A funded, explicitly authorized Sepolia deployment/signing path is still needed for public deployment, source verification and a live mint. The configured address remains null; nothing substitutes for that missing deployment.
-- Earlier prototype v1 collections are not imported. The shell window and coat remain the accepted 2D vertical-band model. Work units are API units, not verified wheel turns; player-supplied art is not proof of a hardware session.
-- Final integrity check: all required source, lockfile, documentation, response JSON and export paths exist and are nonempty; local relative asset URLs resolve. `dist/` is 427,962 bytes; the complete source/export/documentation bundle is under 700,000 bytes (limit 8,388,608). No `.gitignore` change, dependency directory, cache, source map or npm archive is included.
+Completion: Complete for the requested static/demo/local TEST SOURCE scope, with the explicit browser/service limitations above. Nothing was publicly deployed.

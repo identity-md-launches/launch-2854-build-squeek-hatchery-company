@@ -1,52 +1,59 @@
 # Squeek Hatchery design
 
-## Overview
-A warm, cozy single-page toy for players of all levels. The incubator (a dark plum stage holding a cream egg and a lamp on a rail) is the hero and the main action. Data panels sit beside it on desktop and below it on mobile. Copy is short and plain.
+The existing cozy cream/plum hatchery remains the visual system. The product is a stationary egg under a movable lamp; the warm stage carries the interaction. Demo and NFT modes share that incubator while keeping their collections separate. Implementation is a Vite/TypeScript single page with hash navigation and local SVG art.
 
-## Colors (src/style.css `:root`)
-- `--color-bg` #fbf5ec: page. `--color-surface` #fffaf3: cards, buttons, sheet.
-- `--color-text` #3b2a24: body text and focus ring (`--color-focus`). `--color-text-muted` #6b564c: notes and labels.
-- `--color-border` #e8d6c0: button borders, meters, dividers.
-- `--color-accent` #a8492a (hover #8f3c21), `--color-accent-text` #fff: the one primary button per view, links, progress.
-- `--color-stage` #33263a / `--color-stage-text` #f6ebe0: incubator stage and pause overlay.
-- Signal pill: `--color-rest` #e9f1e4 (resting), `--color-run` #fbe7d3 (running), `--color-missing` #f6dede (missing).
-- `--lamp`: set at runtime from the live lamp color (beam, glow, bulb).
-- The artwork uses fixed palette values in src/art.ts (fur #fbeedb to #ead2b3, outline #b08d72, eyes #2f2523).
+## Implemented tokens
+
+Source: `src/style.css:1`.
+
+| Role | Token | Value |
+| --- | --- | --- |
+| Page / surface | `--color-bg` / `--color-surface` | #fbf5ec / #fffaf3 |
+| Main / secondary text | `--color-text` / `--color-text-muted` | #3b2a24 / #6b564c |
+| Structure | `--color-border` | #e8d6c0 |
+| Primary action / hover | `--color-accent` / `--color-accent-hover` | #a8492a / #8f3c21 |
+| Primary label | `--color-accent-text` | #ffffff |
+| Incubator / stage text | `--color-stage` / `--color-stage-text` | #33263a / #f6ebe0 |
+| Rest / running / unavailable backgrounds | `--color-rest` / `--color-run` / `--color-missing` | #e9f1e4 / #fbe7d3 / #f6dede |
+| Focus | `--color-focus` | #3b2a24 |
+
+Lamp color uses the runtime `--lamp` property for beam/bulb lighting only. Fur uses the shared SVG renderer, not a global CSS recolor. Artwork starts with #fff1dc → #f3dfbe → #ddc29e shading, a #b59678 outer edge, muted pink inner ears and #302823 eyes. Local color opacity caps at 0.82; five-neighbor smoothing feathers the same coordinate-based exposure across connected parts. Pearl adds pink/blue sheen; rainbow uses the seven `RAINBOW` stops from `src/rules.ts`. Accessories use harmonious muted cloth, botanical greens, brass and small translucent details.
 
 ## Typography
-- Font: `--font` = ui-rounded, "SF Pro Rounded", Nunito, Segoe UI, system-ui. No web fonts are loaded.
-- Size scale: `--text-sm` 13px (notes, labels, pills), `--text-base` 16px (body), `--text-md` 18px (h3), `--text-lg` 22px (h2, timer, name), `--text-xl` 28px (h1 on mobile), `--text-2xl` 36px (h1 from 640px).
-- Weights: 400 for body, 700 for labels/buttons/h2/h3, 800 for h1. Headings use line-height 1.15 with balanced wrapping; body uses 1.5. Numbers use tabular-nums.
-- Reviewed names keep the 22px size and saved names keep 18px; both wrap anywhere with line-height 1.4. Exact counters keep 16px tabular numbers and wrap instead of clipping, shrinking or using ellipses.
 
-## Layout
-- Spacing tokens `--space-1`, `--space-2`, `--space-3`, `--space-4`, `--space-6`, `--space-8` (4, 8, 12, 16, 24, 32 px). Content max 1180px with 16px inline padding.
-- Under 980px: one column (hero, incubator, panels). From 980px: incubator and panels side by side at 1.25fr:1fr; the stage is capped at `100svh - 330px` so the start button stays on screen.
-- From 640px: header nav is shown and the wallet sheet is centered (a bottom sheet below that).
-- The stage keeps a 400:420 aspect ratio; the SVG and the HTML lamp handle share that coordinate system (src/rules.ts `STAGE`, `lampGeometry`).
-- Grid children can shrink with `min-width: 0`. The two `.stats` columns use `minmax(0, 1fr)`; locked-work notes and trait values wrap full counters too. Browser checks covered 320, 390, 768 and 1440px, including supported 30-character names and 78-digit work counters on mobile.
-- Both `.pair` preview columns also use `minmax(0, 1fr)`. Their figures and captions have `min-width: 0`, and captions use `overflow-wrap: anywhere`. Complete unavailable labels wrap inside the cards at 320px, retaining 13px text, 44px color swatches and 48px pattern miniatures. Aborted requests, invalid measurements and valid IDLE previews were checked at 320, 390 and 1440px in Chromium.
+The system stack is `ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif`. These are fallbacks; no remote font request or bundled font is required.
 
-## Elevation and depth
-Cards use `--shadow` (two soft layers) and no border. Buttons use a 1.5px border and no shadow. The sheet sits on a 45% plum backdrop. The pause overlay is an 88% plum panel on the stage.
+The six source sizes are 13, 16, 18, 22, 28 and 36 px via `--text-sm` through `--text-2xl`. Body is 16 px/1.5; compact mobile introduction, notes and preview labels use 13 px. Headings descend from 28 px mobile / 36 px desktop to 22 px h2 and 18 px h3, at line-height 1.15. Weights are 400, 700 and 800. Headings use balanced wrapping, h1 tracking −0.01em; no small tracked capitals are used. Inputs stay 16 px. Timers/counters use tabular numbers, and full addresses, long names and BigInt counters wrap rather than clipping.
 
-## Shapes
-`--radius-sm` 10px (inputs, sheet rows), `--radius-md` 16px (cards, sheet), `--radius-lg` 24px (stage, portrait). Buttons and pills are fully rounded (999px).
+## Layout and responsive behavior
 
-## Components
-- `.btn` with `.primary`, `.small` and `.warn` variants: rest, hover, pressed (scale .97), focus-visible and disabled (60%). 48px tall, 44px for small.
-- `.card`: panel with a heading and `.note` text; `.stats` (dl grid), `.pair` (swatch or miniature with caption), `.traits` meters.
-- `.pill[data-state]`: signal state. `.swatch` / `.mini` with an `.off` hatched pattern meaning unavailable.
-- Stage: `#stage-svg` layers (animal, shell with feathered window mask, beam, rail, lamp) plus `.lamp-handle` (role slider) and `.rail-hit`.
-- Connect sheet (`.sheet-bg`, `.sheet`, `.row`, `.ic`, `.x`) built in src/app.ts `openSheet()`.
-- Result: name form, then a review panel with portrait, traits, save/download buttons and `.mint-box`.
-- During mint checking, signing and confirmation, Change name and Hatch another are disabled and their handlers are guarded. Rejection/failure restores them. On success the review, saves and downloads use the frozen minted record; renaming stays hidden.
-- `public/og-image.png`: 1200×630 share card using the existing hamster SVG, cream background and brown type. Regenerate with `scripts/share-card.mjs`; its portrait is inline so it has no external image dependency.
+Spacing tokens are 4, 8, 12, 16, 24 and 32 px. The shared container is 1,180 px maximum with 16 px inline padding. Header brand sits left, wallet control right; auxiliary nav is shown from 640 px. The exact required introduction and launch status precede mode buttons; the egg's main action sits **above** the stage so it stays on the first 390 px screen.
 
-## Do's and don'ts
-- Use the semantic tokens; don't hard-code new colors in components. Keep one filled `.primary` per view.
-- Put directions next to the control they describe. Don't add small tracked caps above headings.
-- Render animals only through `animalGroup()` / `portraitSVG()` so the stage, download and token match.
-- New page recipe: `main` > `section` with an h2, `.card` panels inside `.panels`, actions as `.btn`.
+Below 980 px, the incubator and signal/color/accessory/growth panels form one column. At 980 px the grid becomes `minmax(0,1.25fr) minmax(0,1fr)`; the stage is capped using `100svh - 330px`. The stage retains a 400:420 coordinate system. Below 640 px it is at most 343 px wide and 360 px tall. The final result uses one column on mobile, portrait plus review controls from 980 px. Collections use auto-fill columns with a 150 px minimum; the synthetic study uses 145 px minimum columns.
 
-Review guidance: Jakub Krehel's Better Interface (MIT) and Paul Bakaus's Impeccable documentation method (Apache-2.0), supplied as pinned references. The revision preserves the existing visual system.
+Shrinkable grid children, `minmax(0,1fr)` preview/stat columns and wrapping keep complete values visible at 320/390/768/1440. Portrait images have intrinsic dimensions, and the QA study is progressively disclosed with a native details/summary control. Dialogs become bottom sheets below 640 px, center above it, and include safe-area padding.
+
+## Surfaces and shapes
+
+Cards have a soft two-layer shadow (`0 1px 2px` at 6% plus `0 6px 18px` at 6%) and no outline border. Inputs/buttons use structural borders and no outer shadow. Radii are 10, 16 and 24 px for small controls, cards/sheets and the stage/portraits; pill buttons use 999 px. The sheet backdrop is 45% dark plum. The stage's active pause message has its own legible plum surface and explicit text.
+
+## Components and states
+
+- `.btn` is 48 px high; `.small` is 44 px. One filled primary action is used for the current task; secondary actions are neutral. Hover changes background/border, press scales to .96, `:focus-visible` draws a 2 px foreground ring with 2 px offset, and disabled states dim to 60%. Reduced motion removes press scaling and effectively eliminates transitions.
+- `.mode-tabs` uses real buttons with `aria-pressed`; a selected cream fill/border distinguishes Demo/My NFTs. A running incubation or pending transaction blocks mode changes with a reason. A pagehide releases its incubation lock and pauses the session; a history restore reloads the card and requires Resume to reacquire the lock. Pre-start lamp aim survives loading the latest saved session.
+- Stage: a fixed-position egg, soft masked shell window, perpendicular beam, rail and an accessible vertical slider. Pointer/touch dragging, arrows, Home/End, PageUp/PageDown and region shortcut buttons share the same geometry. The lamp uses a 3 px white focus perimeter on the plum stage. Progress is textual and visual; unavailable/rest/running states always have labels.
+- Data cards use headings, native definition lists, paired swatches/miniatures and trait meters. Missing previews are visibly hatched and labeled Unavailable. Accessories show current/next and exact remaining work units, never a picker.
+- Collection cards have stable local IDs: one egg card changes to a hamster. Legacy SVGs and external NFT art are displayed through `<img>`, never inserted as HTML. The generated live stage uses only validated numeric state and the site's own renderer.
+- Review uses a labeled 16 px input, inline validation, a trait list, save and SVG/JSON downloads. Show coat is explicitly view-only. Canonical art always includes the accessory. Names are locked during checking/proof/signing/receipt states; confirmed results remain frozen.
+- My NFTs has unavailable/loading/empty/holdings/error/claim/hatch states, visible disabled reasons, full address/network/Sepolia ETH, paginated ownership reads and receipt-based success. Runtime null config is explicit. These are test integrations; the public site makes no live mint claim.
+- The connect sheet lists discovered wallet names/marks, mobile wallet-browser links and Coinbase Smart Wallet. External wallet labels/icons are escaped. Background content is inert, Tab stays inside, Escape/backdrop/Close dismiss, and focus returns to the live header control. Rejection leaves an inline retry message.
+
+## Artwork and reuse
+
+`src/art.ts` owns the sole canonical hamster renderer used by the stage, review, saves, downloads and verifier-bound NFT result. A union silhouette/outer edge removes torso/cheek seams. Before hatch, the stage animal is clipped to the egg interior so the pom and long fur cannot protrude through an opaque shell; hatch removes that clip without changing traits. A pear body supports a large head, attached ears, subtle paws/feet and a small partly hidden pom. Regional curved locks and shading develop independently; there are no new coat-pattern primitives. Portrait export crops the original stage coordinates to `viewBox="60 65 280 294"` at 400×420 for clearer mobile detail.
+
+Accessory IDs/designs live in `src/rules.ts` and `accessoryArt`; IDs 10/11 are the only specials. Keep versioned IDs stable. The crop-aware `accessoryMiniature` makes small pins readable. The synthetic QA disclosure renders 21 labeled studies: three same-color levels, three mixed growth variants, mixed colors, pearl/rainbow and twelve accessories. These are a visual study, not public hardware fallback data.
+
+Reuse the existing `.layout`, `.card`, `.stats`, `.pair`, `.row` and `.btn` primitives for further product surfaces. Keep irreversible-action explanations and disabled reasons beside their controls. Keep new parameters in pure rules and canonical export code; a view toggle must never change stored metadata. Extend the six-size scale and semantic colors only when an actual use case needs it.
+
+Review method: Jakub Krehel's Better Interface (MIT) across accessibility/layout/writing/typography/colors/UI; implemented-design documentation adapted from Paul Bakaus's Impeccable (Apache-2.0). Attribution/licenses are retained under `artifacts/`. Actual rendered coverage, corrections and limitations are recorded in `VALIDATION.md`.
