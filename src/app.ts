@@ -273,21 +273,23 @@ async function poll() {
       Date.now(),
       replayBaseline,
     );
-    if (phase === "running" && !document.hidden)
-      pendingWork += workDelta(reading, next);
+    if (next !== replayBaseline) {
+      if (phase === "running" && !document.hidden)
+        pendingWork += workDelta(reading, next);
+      replayBaseline = next;
+      pollDelay = 4000;
+      try {
+        localStorage.setItem(
+          "squeek-signal-baseline-v3",
+          JSON.stringify({ ...next, work: next.work.toString() }),
+        );
+      } catch {
+        /* data validation still works in memory */
+      }
+    }
     reading = next;
-    replayBaseline = next;
     lastOk = Date.now();
     signalReason = null;
-    pollDelay = 4000;
-    try {
-      localStorage.setItem(
-        "squeek-signal-baseline-v3",
-        JSON.stringify({ ...next, work: next.work.toString() }),
-      );
-    } catch {
-      /* data validation still works in memory */
-    }
   } catch (e) {
     reading = null;
     resumeAt = null;
@@ -1209,12 +1211,14 @@ function renderHoldings() {
   $("#more-nfts").hidden = nftState.next >= nftState.count;
 }
 async function selectNft(id: string) {
-  if (busy || phase === "running") return;
+  // Re-read shared state after the asynchronous ownership check as well.
+  const unavailable = () => busy || phase === "running";
+  if (unavailable()) return;
   const c = W.connection();
   if (!c.address) return;
   try {
     await W.assertOwner(BigInt(id), c.address);
-    if (mode !== "nft" || phase === "running" || busy) return;
+    if (mode !== "nft" || unavailable()) return;
     const key = `squeek-nft-draft-v3:${W.runtime.contractAddress}:${id}:${c.address.toLowerCase()}`;
     let draft: null | {
       session: Session;

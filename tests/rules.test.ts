@@ -71,8 +71,57 @@ test("only fresh hardware is accepted, including stale observations with a refre
     0,
   );
 });
-test("repeated, backwards work, distance and cross-epoch old readings reject against retained baseline", () => {
-  assert.throws(() => validateStatus(body(), now, r), /replay/i);
+test("unchanged fresh ACTIVE and IDLE measurements keep their original reading and add no work", () => {
+  for (const coreStatus of ["ACTIVE", "IDLE"]) {
+    const payload = body({ coreStatus });
+    const baseline = validateStatus(payload, now);
+    for (const delay of [0, 4000, 8000, 12000, 15000]) {
+      // A refreshed HTTP receipt must not replace the accepted observation or extend its life.
+      const unchanged = validateStatus(
+        body({ coreStatus, receivedAt: new Date(now + delay).toISOString() }),
+        now + delay,
+        baseline,
+      );
+      assert.strictEqual(unchanged, baseline);
+      assert.equal(workDelta(baseline, unchanged), 0n);
+      assert.equal(unchanged.received, now);
+    }
+  }
+});
+test("unchanged measurements still expire and undergo all hardware checks", () => {
+  const freshReceipt = { receivedAt: new Date(now + 15001).toISOString() };
+  assert.throws(
+    () => validateStatus(body(freshReceipt), now + 15001, r),
+    (e: unknown) => e instanceof SignalError && e.reason === "stale",
+  );
+  const shortLimit = validateStatus(body({ staleAfterSeconds: 5 }), now);
+  assert.throws(
+    () => validateStatus(body({ staleAfterSeconds: 5 }), now + 5001, shortLimit),
+    (e: unknown) => e instanceof SignalError && e.reason === "stale",
+  );
+  for (const patch of [
+    { provenance: "simulated" },
+    { freshness: "offline" },
+    { coreStatus: "COUNTER_FAULT" },
+    { rpmMilli: -1 },
+    { receivedAt: "invalid" },
+  ])
+    assert.throws(() => validateStatus(body(patch), now, r), SignalError);
+});
+test("conflicting equal-time measurements, backwards counters and old observations reject against retained baseline", () => {
+  for (const patch of [
+    { counterEpoch: "b" },
+    { cumulativeWorkUnits: "1001" },
+    { cumulativeWorkUnits: "999" },
+    { distanceMm: 124000 },
+    { distanceMm: 122000 },
+    { rpmMilli: 60000 },
+    { coreStatus: "IDLE" },
+  ])
+    assert.throws(
+      () => validateStatus(body(patch), now, r),
+      (e: unknown) => e instanceof SignalError && e.reason === "replayed",
+    );
   for (const patch of [{ cumulativeWorkUnits: "999" }, { distanceMm: 120000 }])
     assert.throws(
       () =>

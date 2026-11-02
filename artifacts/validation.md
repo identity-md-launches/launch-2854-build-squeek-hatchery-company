@@ -1,5 +1,68 @@
 # Validation — 2026-11-02
 
+## Revision: unchanged hardware measurements
+
+Finding `004a8ff4eb78ced5b06fd880ad9b4914110fb01c98ef5368ad7ec762e39b8df0` is **fixed**. This revision changes signal acceptance/polling, adds focused regressions and refreshes the static export/documentation. The existing layout, artwork, wallet configuration, contract source, dependencies and build configuration are preserved. The sections after this revision record describe the earlier delivery; their separate contract/security, native-wallet and phone-input checks were not all rerun here.
+
+### Reproduction and correction
+
+- **Before:** Served the original `dist/` under `/preview/` in Chromium at 390×844, selected Get demo egg → Incubate and sampled the timer/signal every 250 ms for 40 seconds against the real hardware API. The IDLE feed repeated observation timestamps between updates. Timer: **1:00 → 0:51** in 40.120 seconds; **94 samples** showed the false replay error. A focused unit regression also failed before the fix.
+- **Cause/fix:** `src/rules.ts:107` rejected all equal timestamps. It now rejects older timestamps and conflicting equal-time epoch/work/distance/status/effective-RPM values, while returning the original accepted Reading for an identical fresh measurement. Format, provenance, fault and freshness validation still run before this branch. Original observation/receipt timestamps remain unchanged, preventing HTTP polling from extending freshness.
+- **Polling:** `src/app.ts:276` only accumulates work, persists a new baseline and resets polling cadence for a genuinely new measurement. Identical polls preserve the current reading, pending work and poll delay without restarting recovery. Genuine failures still clear the active reading, preserve the replay baseline and require the existing three-second recovery.
+- **After:** Repeated the same real-time live-feed check on the rebuilt export. Timer: **1:00 → 0:21** in 40.176 seconds; **six unchanged responses**, **zero false replay samples**, zero page errors. The displayed countdown rounds remaining time up; this is consistent with continuous active progress. This bounded observation does not guarantee future API availability or cadence.
+- **Required build repair:** The original source also reproduced TypeScript diagnostic TS2367 at `selectNft`'s post-await phase check. `src/app.ts:1213` now calls a small predicate before and after the asynchronous ownership read, preserving the same runtime checks while avoiding incorrect static narrowing. The wallet/NFT browser regressions passed with this change.
+
+### Checks actually rerun
+
+Dependencies matching the unchanged lockfile were reused through an external temporary source/build mirror. No dependency/cache directory was created in the repository. The final source was copied to that mirror, checked and built; the complete fresh export was copied back without old hashed chunks. Commands below abbreviate external paths and identify scratch-only checks explicitly.
+
+```sh
+npm run typecheck
+npm test
+npm run build
+PLAYWRIGHT=<external-playwright> PLAYWRIGHT_BROWSERS_PATH=<external-browsers> node tests/e2e.mjs
+PLAYWRIGHT_BROWSERS_PATH=<external-browsers> node test/scratch/live-signal.mjs before
+PLAYWRIGHT_BROWSERS_PATH=<external-browsers> node test/scratch/live-signal.mjs after
+IMD_PLAYWRIGHT=<external-playwright> PLAYWRIGHT_BROWSERS_PATH=<external-browsers> \
+  node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste
+node scripts/check-delivery.mjs <fresh-production-export>
+git diff --check
+```
+
+| Check | Revision result |
+| --- | --- |
+| Typecheck and production build | Pass; existing `ox` / `node:worker_threads` externalization warning remains |
+| Rules/art/export suite | **14/14 pass**, including unchanged ACTIVE/IDLE, zero extra work, original timestamps, stale limits and conflicting/older observations |
+| Production-export Chromium suite | **13/13 pass**, zero page errors or missing local resources |
+| New browser regression | 390px ACTIVE and 1440px IDLE; 4-second polls of 10-second measurements stay fresh, preserve cadence, count exact work, lock accessory and hatch the same card exactly once at 60 active seconds |
+| Freshness/recovery browser regression | Frozen measurement fresh at 14s, unavailable after 15s, no progress while stale; genuinely new measurement waits 3s to resume |
+| Existing browser regressions | Persistence/naming/SVG/JSON parity, interruptions/backwards counters, visibility/reload, concurrent tabs, artwork/keyboard/reflow, history restoration, wallet rejection/wrong chain, local claim/proof/hatch/receipt, account/ownership changes and RPC isolation pass |
+| Live API comparison | Original 9s vs corrected approximately 40s active progress in separate 40s observations; false replay samples 94 → 0 |
+| Design probe | **15/16 pass**; unchanged Connect-header heuristic warning, retained because it is the required wallet control |
+| Export integrity | Fresh build equality, relative assets, metadata/runtime assets, null public contract/proof config, ABI/compiler parity, protected paths and byte budgets pass |
+
+The managed browser connector was attempted and could not launch its Chrome distribution. Rendered checks used external Playwright Chromium. The WebKit launch probe reports its executable is absent; no Safari/WebKit observation is claimed. The source-only contract suite was not recompiled/rerun separately: contracts/ABI/compiler artifacts are unchanged, and the Chromium suite exercised real local-chain claim/hatch/proof/receipt behavior using the delivered mock artifacts. No public deployment occurred.
+
+### Better Interface review of this revision
+
+Read the pinned workflow/core principles for all six domains and reviewed the affected signal states within the established design. Inspected the final 390px and 1440px probe screenshots and the live incubation screenshot; the product and Get demo egg remain on the first 390px screen. `DESIGN.md` retains the implemented tokens/type/components/responsiveness and now documents unchanged-reading feedback.
+
+| Domain | Checked in this revision | Limits |
+| --- | --- | --- |
+| Accessibility | Native action controls, existing text status independent of color, keyboard lamp regression, probe target/motion checks | No screen reader, physical device or full accessibility audit |
+| Layout | Probe reflow/overlap/clipping checks at 320/390/1440; browser suite also checks 768; mobile/desktop screenshots inspected | No native zoom, RTL or localization stress test |
+| Writing | False replay message eliminated for identical fresh data; older/conflicting/stale failures remain explicit; exact requested intro/status retained | English only; no user study |
+| Typography | Existing scale/weights/tabular countdown preserved; probe and screenshot wrapping checks pass | Platform font variation; no independent font audit |
+| Colors | Existing semantic status tokens retained; probe's resolved-solid-background contrast check passes | Artwork/gradient/alpha contrast not certified |
+| UI | Running/Resting remain stable across duplicates; stale pause and three-second recovery tested; pending/receipt/frozen/export regressions pass | No native wallet app, Coinbase passkey or 10%-speed Animations-panel review |
+
+High-impact finding: `src/rules.ts:107` / `src/app.ts:276`, false replay interruptions of the primary task; corrected and rechecked using live feed, pure rules and synthetic production-browser tests. No visual redesign or new unresolved design finding was introduced. Synthetic hardware remains confined to QA contexts; the public export only fetches real data. Scratch logs/screenshots are disposable and not shipped; reusable regressions are in `tests/rules.test.ts` and `tests/e2e.mjs`.
+
+Completion: **Complete for this bounded revision**, with the browser/service limitations above. `.imd-responses.json` contains the finding verdict. The original delivery evidence follows for context and is not a claim that every earlier check was repeated.
+
+---
+
+
 This is worker-side evidence for the continued Squeek Hatchery assignment, not an independent behavior/security certification. The deliverable is a static local demo, real wallet integration and upgradeable **TEST SOURCE**. Public contract/proof-service configuration remains null. No public deployment, hosting command, source-verification transaction or external message was sent.
 
 ## Scope and actual checks

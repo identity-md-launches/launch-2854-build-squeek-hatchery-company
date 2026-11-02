@@ -176,7 +176,7 @@ const check = async (name, fn) => {
     throw e;
   }
 };
-async function fixture(width = 390, wallet = false) {
+async function fixture(width = 390, wallet = false, measurementPeriod = 0, status = "ACTIVE") {
   const context = await browser.newContext({
       viewport: { width, height: 844 },
       acceptDownloads: true,
@@ -190,12 +190,15 @@ async function fixture(width = 390, wallet = false) {
   });
   let state = {
     mode: "fresh",
-    status: "ACTIVE",
+    status,
     rpm: 120000,
     work: "1000",
     mm: 250000,
     epoch: "synthetic-qa",
     frozenObserved: null,
+    sampleOrigin: null,
+    workStep: "0",
+    pollTimes: [],
   };
   await page.route("https://api.squeekchain.com/**", async (route) => {
     if (state.mode === "network") {
@@ -203,7 +206,14 @@ async function fixture(width = 390, wallet = false) {
       return;
     }
     const now = await page.evaluate(() => Date.now());
-    let observed = state.frozenObserved ?? now;
+    state.pollTimes.push(now);
+    state.sampleOrigin ??= now;
+    const sampleIndex = measurementPeriod
+      ? Math.floor((now - state.sampleOrigin) / measurementPeriod)
+      : 0;
+    let observed = state.frozenObserved ?? (measurementPeriod
+      ? state.sampleOrigin + sampleIndex * measurementPeriod
+      : now);
     if (state.mode === "stale") observed = now - 160000;
     const measurement = {
       provenance: state.mode === "simulated" ? "simulated" : "hardware",
@@ -211,10 +221,10 @@ async function fixture(width = 390, wallet = false) {
       coreStatus: state.mode === "fault" ? "COUNTER_FAULT" : state.status,
       rpmMilli: state.rpm,
       distanceMm: state.mm,
-      cumulativeWorkUnits: state.work,
+      cumulativeWorkUnits: (BigInt(state.work) + BigInt(sampleIndex) * BigInt(state.workStep)).toString(),
       counterEpoch: state.epoch,
       observedAt: new Date(observed).toISOString(),
-      receivedAt: new Date(now).toISOString(),
+      receivedAt: new Date(measurementPeriod ? observed : now).toISOString(),
       staleAfterSeconds: 15,
     };
     await route.fulfill({
@@ -325,7 +335,7 @@ async function fixture(width = 390, wallet = false) {
   await page.clock.install();
   await page.goto(origin + "/preview/");
   await page.waitForFunction(() =>
-    document.querySelector("#signal-pill")?.textContent.includes("Running"),
+    document.querySelector("#signal-state")?.textContent === "Fresh hardware reading",
   );
   await pause(40);
   return { context, page, state };
@@ -506,6 +516,72 @@ try {
         ),
         id,
       );
+      await f.context.close();
+    },
+  );
+  await check(
+    "4s polls of unchanged 10s measurements preserve ACTIVE/IDLE incubation, cadence and exact work",
+    async () => {
+      for (const [width, status] of [[390, "ACTIVE"], [1440, "IDLE"]]) {
+        const f = await fixture(width, false, 10000, status),
+          p = f.page;
+        f.state.workStep = "50";
+        await p.click("#get-egg");
+        await p.waitForSelector("#start:not([hidden])");
+        const id = await p.evaluate(() => JSON.parse(localStorage.getItem("squeek-hatchery-v3")).cards[0].id);
+        await p.click("#start");
+        for (let second = 0; second < 40; second++) {
+          await advance(p, 1000);
+          assert.equal(await p.locator("#signal-state").textContent(), "Fresh hardware reading");
+          assert.match(await p.locator("#signal-pill").textContent(), status === "IDLE" ? /Resting/ : /Running/);
+        }
+        await advance(p, 250);
+        const progress = await p.evaluate(() => ({
+          session: JSON.parse(localStorage.getItem("squeek-hatchery-v3")).cards[0].session,
+          baseline: JSON.parse(localStorage.getItem("squeek-signal-baseline-v3")),
+        }));
+        assert.ok(progress.session.elapsed >= 36 && progress.session.elapsed <= 40.5, `40s play advanced ${progress.session.elapsed}s`);
+        assert.equal(progress.session.workDuring, (BigInt(progress.baseline.work) - 1000n).toString());
+        assert.equal(progress.session.accessoryId, 10, "the starting accessory stays locked");
+        assert.ok(f.state.pollTimes.length >= 10);
+        for (let i = 1; i < f.state.pollTimes.length; i++)
+          assert.ok(Math.abs(f.state.pollTimes[i] - f.state.pollTimes[i - 1] - 4000) < 250, "unchanged polls never back off");
+        await advance(p, 25000);
+        await p.waitForSelector("#result:not([hidden])");
+        const cards = await p.evaluate(() => JSON.parse(localStorage.getItem("squeek-hatchery-v3")).cards);
+        assert.equal(cards.length, 1);
+        assert.equal(cards[0].id, id);
+        assert.equal(cards[0].kind, "hamster");
+        assert.equal(cards[0].session.elapsed, 60);
+        await f.context.close();
+      }
+    },
+  );
+  await check(
+    "an unchanged measurement expires at 15s and a genuinely new one waits 3s to recover",
+    async () => {
+      const f = await fixture(390, false, 10000),
+        p = f.page;
+      f.state.frozenObserved = f.state.sampleOrigin;
+      await p.click("#get-egg");
+      await p.waitForSelector("#start:not([hidden])");
+      await p.click("#start");
+      await advance(p, 14000);
+      assert.equal(await p.locator("#signal-state").textContent(), "Fresh hardware reading");
+      await advance(p, 2000);
+      assert.equal(await p.locator("#signal-pill").textContent(), "Signal unavailable");
+      const stopped = await timeLeft(p);
+      await advance(p, 10000);
+      assert.equal(await timeLeft(p), stopped);
+      assert.match(await p.locator("#signal-state").textContent(), /stale/i);
+      f.state.frozenObserved = null;
+      await p.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+      await pause(30);
+      await advance(p, 2000);
+      assert.equal(await p.locator("#signal-state").textContent(), "Fresh hardware reading");
+      assert.equal(await timeLeft(p), stopped);
+      await advance(p, 2000);
+      assert.notEqual(await timeLeft(p), stopped);
       await f.context.close();
     },
   );

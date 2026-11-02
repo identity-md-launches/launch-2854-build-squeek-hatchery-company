@@ -103,15 +103,30 @@ export function validateStatus(
   )
     throw new SignalError("stale", "The latest wheel reading is stale");
   const work = BigInt(m.cumulativeWorkUnits);
-  if (previous && observed <= previous.observedAt)
+  const rpm = m.coreStatus === "IDLE" ? 0 : m.rpmMilli / 1000;
+  if (previous && observed < previous.observedAt)
     throw new SignalError(
       "replayed",
-      "An older or repeated reading was replayed",
+      "An older reading was replayed",
     );
+  if (previous && observed === previous.observedAt) {
+    if (
+      m.counterEpoch !== previous.counterEpoch ||
+      work !== previous.work ||
+      m.distanceMm !== previous.distanceMm ||
+      m.coreStatus !== previous.coreStatus ||
+      rpm !== previous.rpm
+    )
+      throw new SignalError(
+        "replayed",
+        "The same reading timestamp has conflicting values",
+      );
+    // Polls can outpace hardware measurements. Preserve the reading, including its
+    // original freshness timestamps; an HTTP receipt cannot extend its lifetime.
+    return previous;
+  }
   if (previous && previous.counterEpoch === m.counterEpoch) {
-    // Within one epoch time and the counter only move forward; anything else is a replay.
-    if (observed <= previous.observedAt)
-      throw new SignalError("replayed", "An older reading was replayed");
+    // Within one epoch counters only move forward, except for daily distance resets.
     if (
       work < previous.work ||
       (m.distanceMm < previous.distanceMm &&
@@ -119,7 +134,6 @@ export function validateStatus(
     )
       throw new SignalError("replayed", "Work counter moved backwards");
   }
-  const rpm = m.coreStatus === "IDLE" ? 0 : m.rpmMilli / 1000;
   return {
     coreStatus: m.coreStatus,
     rpm,
